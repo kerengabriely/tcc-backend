@@ -1,0 +1,152 @@
+package com.tcc.project.controller;
+
+import com.tcc.project.usecase.*;
+import com.tcc.project.dto.CreateProjectDto;
+import com.tcc.project.dto.ResponseProjectDto;
+import com.tcc.project.entity.Project;
+import com.tcc.user.adapter.repository.UserRepository;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
+import com.tcc.user.entity.User;
+import com.tcc.entrepreneur.adapter.repository.EntrepreneurRepository;
+import com.tcc.entrepreneur.entity.Entrepreneur;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+
+@RestController
+@RequestMapping("/api/v1/projects")
+@RequiredArgsConstructor
+public class ProjectController {
+
+    private final ModelMapper modelMapper;
+
+    private final CreateProjectUseCase createProjectUseCase;
+    private final GetAllProjectUseCase getAllProjectUseCase;
+    private final GetByIdProjectUseCase getByIdProjectUseCase;
+    private final UpdateProjectUseCase updateProjectUseCase;
+    private final DeleteProjectUseCase deleteProjectUseCase;
+    private final EntrepreneurRepository entrepreneurRepository;
+    private final UserRepository userRepository;
+
+    @PostMapping
+    public ResponseEntity<String> create(@RequestBody @Valid CreateProjectDto createProjectDto) {
+        Project project = modelMapper.map(createProjectDto, Project.class);
+        try {
+            createProjectUseCase.execute(project);
+            return ResponseEntity.ok("Projeto cadastrado com sucesso e disponível para estudantes.");
+        } catch (org.springframework.web.server.ResponseStatusException ex) {
+            return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body("Erro ao cadastrar projeto: " + ex.getMessage());
+        }
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ResponseProjectDto>> getAll(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) String requirements,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String creationDate,
+            @RequestParam(required = false) LocalDate deadLine
+    ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        String email = (String) authentication.getPrincipal();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
+
+        Entrepreneur entrepreneur = entrepreneurRepository.findByUser_Id(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Empreendedor não encontrado"));
+
+        List<Project> projects = getAllProjectUseCase.execute(title, description, requirements, status, creationDate, entrepreneur.getId(), deadLine);
+
+        List<ResponseProjectDto> response = projects.stream()
+                .map(project -> modelMapper.map(project, ResponseProjectDto.class))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ResponseProjectDto> getById(@PathVariable String id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+
+        String email = (String) authentication.getPrincipal();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
+
+        Entrepreneur entrepreneur = entrepreneurRepository.findByUser_Id(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Empreendedor não encontrado"));
+
+        Project project = getByIdProjectUseCase.execute(id);
+
+        if (!project.getIdEntrepreneur().getId().equals(entrepreneur.getId())) {
+            return ResponseEntity.status(403).build();
+        }
+
+        ResponseProjectDto response = modelMapper.map(project, ResponseProjectDto.class);
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ResponseProjectDto> update(@PathVariable String id, @RequestBody @Valid CreateProjectDto updateProjectDto) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        User user = (User) authentication.getPrincipal();
+        Optional<Entrepreneur> entrepreneurOpt = entrepreneurRepository.findByUser_Id(user.getId());
+        if (entrepreneurOpt.isEmpty()) {
+            return ResponseEntity.status(404).build();
+        }
+        Entrepreneur entrepreneur = entrepreneurOpt.get();
+        Project existingProject = getByIdProjectUseCase.execute(id);
+        if (!existingProject.getIdEntrepreneur().getId().equals(entrepreneur.getId())) {
+            return ResponseEntity.status(403).build();
+        }
+        Project updatedProject = modelMapper.map(updateProjectDto, Project.class);
+        updatedProject.setId(id);
+        updatedProject.setIdEntrepreneur(entrepreneur);
+        Project savedProject = updateProjectUseCase.execute(id, updatedProject);
+        ResponseProjectDto response = modelMapper.map(savedProject, ResponseProjectDto.class);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable String id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).build();
+        }
+        User user = (User) authentication.getPrincipal();
+        Optional<Entrepreneur> entrepreneurOpt = entrepreneurRepository.findByUser_Id(user.getId());
+        if (entrepreneurOpt.isEmpty()) {
+            return ResponseEntity.status(404).build();
+        }
+        Entrepreneur entrepreneur = entrepreneurOpt.get();
+        Project project = getByIdProjectUseCase.execute(id);
+        if (!project.getIdEntrepreneur().getId().equals(entrepreneur.getId())) {
+            return ResponseEntity.status(403).build();
+        }
+        deleteProjectUseCase.execute(id);
+        return ResponseEntity.noContent().build();
+    }
+}
