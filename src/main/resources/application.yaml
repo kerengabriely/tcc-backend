@@ -39,3 +39,5 @@ project:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_
+jwt:
+  secret: ${jwt.secret}
