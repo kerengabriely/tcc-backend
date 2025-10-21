@@ -59,7 +59,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         // Define a origem permitida (seu frontend Angular)
         configuration.setAllowedOrigins(List.of("http://localhost:4200",
-                "tcc-frontend-production-8310.up.railway.app"));
+                "https://tcc-frontend-production-8310.up.railway.app"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
