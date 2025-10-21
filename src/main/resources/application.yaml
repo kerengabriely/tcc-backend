@@ -40,4 +40,5 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_
 jwt:
-  secret: ${jwt.secret}
+  secret: ${JWT_SECRET}
+  expiration-ms: ${EXPIRATION_MS}
