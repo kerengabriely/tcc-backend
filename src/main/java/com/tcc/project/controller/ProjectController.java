@@ -61,20 +61,9 @@ public class ProjectController {
             @RequestParam(required = false) String creationDate,
             @RequestParam(required = false) LocalDate deadLine
     ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).build();
-        }
-
-        String email = (String) authentication.getPrincipal();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
-
-        Entrepreneur entrepreneur = entrepreneurRepository.findByUser_Id(user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Empreendedor não encontrado"));
-
-        List<Project> projects = getAllProjectUseCase.execute(title, description, requirements, status, creationDate, entrepreneur.getId(), deadLine);
+        List<Project> projects = getAllProjectUseCase.execute(
+                title, description, requirements, status, creationDate, null, deadLine
+        );
 
         List<ResponseProjectDto> response = projects.stream()
                 .map(project -> modelMapper.map(project, ResponseProjectDto.class))
