@@ -17,16 +17,7 @@ public class GetByIdEntrepreneurUseCase {
     private final EntrepreneurRepository repository;
 
     public Entrepreneur execute(String id) {
-        return repository.findOne(EntrepreneurSpecification.build(
-                Optional.ofNullable(id),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()
-        )).orElseThrow(
-                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrepreneur not found.")
-        );
+        return repository.findByIdWithBusinessAreas(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrepreneur not found."));
     }
 }
