@@ -24,33 +24,16 @@ public class CreateApplicationUseCase {
     private final ProjectRepository projectRepository;
 
     public void execute(CreateApplicationDto dto) {
-        // Buscar o projeto pelo ID enviado no DTO
         Project project = projectRepository.findById(dto.getIdProject())
                 .orElseThrow(() -> new IllegalArgumentException("Projeto não encontrado."));
-
-        // Criar estudante apenas com o ID (ou buscar do repo se precisar validar)
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        // Busca o estudante no banco
-        Student student = studentRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("Estudante não encontrado"));
-
-        // Validação: apenas uma ideia por estudante/projeto
-        if (repository.findByIdStudentIdAndIdProjectId(student.getId(), project.getId()).isPresent()) {
-            throw new IllegalArgumentException("Já existe uma ideia vinculada a este projeto por este estudante.");
-        }
-
-        // Validação da ideia
-        if (dto.getIdea() == null || dto.getIdea().trim().length() < 300) {
-            throw new IllegalArgumentException("Descrição obrigatória com mínimo de 300 caracteres.");
-        }
 
         // Criar a entidade Application
         Application application = new Application();
         application.setIdea(dto.getIdea());
         application.setValue(dto.getValue());
         application.setIdProject(project);
-        application.setIdStudent(student);
+        application.setIdStudent(null);
+
         application.setStatus("ANALYZE");
         application.setApplicationDate(LocalDateTime.now());
 
