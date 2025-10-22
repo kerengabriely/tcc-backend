@@ -74,7 +74,7 @@ public class EntrepreneurController {
         Entrepreneur Entrepreneur = getByIdEntrepreneurUseCase.execute(id);
         ResponseEntrepreneurDto response = modelMapper.map(Entrepreneur, ResponseEntrepreneurDto.class);
 
-        if (Entrepreneur.getBusinessAreas() != null && !Entrepreneur.getBusinessAreas().isEmpty()) {
+        if (!Entrepreneur.getBusinessAreas().isEmpty()) {
             response.setBusinessArea(Entrepreneur.getBusinessAreas().get(0).getName());
         }
 
