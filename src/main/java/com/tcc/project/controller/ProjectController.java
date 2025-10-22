@@ -73,24 +73,7 @@ public class ProjectController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ResponseProjectDto> getById(@PathVariable String id) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).build();
-        }
-
-        String email = (String) authentication.getPrincipal();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
-
-        Entrepreneur entrepreneur = entrepreneurRepository.findByUser_Id(user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Empreendedor não encontrado"));
-
         Project project = getByIdProjectUseCase.execute(id);
-
-        if (!project.getIdEntrepreneur().getId().equals(entrepreneur.getId())) {
-            return ResponseEntity.status(403).build();
-        }
-
         ResponseProjectDto response = modelMapper.map(project, ResponseProjectDto.class);
         return ResponseEntity.ok(response);
     }
