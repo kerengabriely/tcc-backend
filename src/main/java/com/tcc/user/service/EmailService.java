@@ -1,17 +1,22 @@
 package com.tcc.user.service;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
+import com.sendgrid.*;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final SendGrid sendGrid;
+
+    public EmailService() {
+        // Recupera a chave do ambiente (Railway → Variables)
+        String apiKey = System.getenv("SENDGRID_API_KEY");
+        this.sendGrid = new SendGrid(apiKey);
+    }
 
     public void sendPasswordResetEmail(String to, String token) {
         String subject = "🔒 Redefinição de senha — Seu código de verificação";
@@ -36,9 +41,7 @@ public class EmailService {
                       max-width: 500px;
                       margin: auto;
                     }
-                    h2 {
-                      color: #1e40af;
-                    }
+                    h2 { color: #1e40af; }
                     .code {
                       display: inline-block;
                       background: #eef2ff;
@@ -50,10 +53,7 @@ public class EmailService {
                       border-radius: 10px;
                       margin: 20px 0;
                     }
-                    p {
-                      line-height: 1.5;
-                      font-size: 15px;
-                    }
+                    p { line-height: 1.5; font-size: 15px; }
                   </style>
                 </head>
                 <body>
@@ -72,16 +72,27 @@ public class EmailService {
                 </html>
                 """.formatted(token);
 
+        Email from = new Email("techhstart@gmail.com"); // precisa estar verificado no SendGrid
+        Email recipient = new Email(to);
+        Content content = new Content("text/html", htmlContent);
+        Mail mail = new Mail(from, subject, recipient, content);
+
+        Request request = new Request();
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, "utf-8");
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(htmlContent, true); // “true” = envia como HTML
-            helper.setFrom("techhstart@gmail.com"); // substitua pelo seu remetente real
-            mailSender.send(message);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Erro ao enviar e-mail de redefinição de senha", e);
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
+
+            Response response = sendGrid.api(request);
+            int status = response.getStatusCode();
+
+            if (status < 200 || status >= 300) {
+                throw new RuntimeException("Falha ao enviar e-mail. Status: " + status +
+                        " | Corpo: " + response.getBody());
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao enviar e-mail via SendGrid", e);
         }
     }
 }
